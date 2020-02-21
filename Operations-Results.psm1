@@ -1,4 +1,29 @@
-﻿function Get-TestRailResults
+﻿function ConvertTo-TestRailTimeSpanString{
+    param(
+        [timespan]
+        $TimeSpanValue
+    )
+    $stringBuilder = [System.Text.StringBuilder]::new()
+
+    # milliseconds can't be tracked by TestRail
+    if($TimeSpanValue.Milliseconds -gt 500){
+        $oneSecond = New-TimeSpan -Seconds 1
+        $TimeSpanValue = $TimeSpanValue.Add($oneSecond)
+    }
+
+    if($TimeSpanValue.Hours -gt 0){
+        [void]$stringBuilder.Append("$($TimeSpanValue.Hours)h")
+    }
+    if($TimeSpanValue.Minutes -gt 0){
+        [void]$stringBuilder.Append(" $($TimeSpanValue.Minutes)m")
+    }
+    if($TimeSpanValue.Seconds -gt 0){
+        [void]$stringBuilder.Append(" $($TimeSpanValue.Seconds)s")
+    }
+    return $stringBuilder.ToString().Trim()
+}
+
+function Get-TestRailResults
 {
     param
     (
@@ -45,7 +70,7 @@
             Add-UriParameters -Parameters $Parameters -Hash @{ status_id = [String]::Join(",", $StatusId ) }
         }
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -101,7 +126,7 @@ function Get-TestRailResultsForCase
             Add-UriParameters -Parameters $Parameters -Hash @{ status_id = [String]::Join(",", $StatusId ) }
         }
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -182,7 +207,7 @@ function Get-TestRailResultsForRun
             Add-UriParameters -Parameters $Parameters -Hash @{ status_id = [String]::Join(",", $StatusId ) }
         }
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -209,7 +234,7 @@ function Add-TestRailResult
         $Version,
 
         [Parameter(Mandatory=$false)]
-        [string]
+        [TimeSpan]
         $Elapsed,
 
         [Parameter(Mandatory=$false)]
@@ -244,7 +269,8 @@ function Add-TestRailResult
 
         if ( $PSBoundParameters.ContainsKey("Elapsed") )
         {
-            $Parameters.Add("elapsed", $Elapsed)
+            $ElapsedString = ConvertTo-TestRailTimeSpanString -TimeSpanValue $Elapsed
+            $Parameters.Add("elapsed", $ElapsedString)
         }
 
         if ( $PSBoundParameters.ContainsKey("Defects") )
@@ -267,7 +293,7 @@ function Add-TestRailResult
             $Parameters.Add($Key, $CustomFields[$_])
         }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -298,7 +324,7 @@ function Add-TestRailResultForCase
         $Version,
 
         [Parameter(Mandatory=$false)]
-        [string]
+        [TimeSpan]
         $Elapsed,
 
         [Parameter(Mandatory=$false)]
@@ -333,7 +359,8 @@ function Add-TestRailResultForCase
 
         if ( $PSBoundParameters.ContainsKey("Elapsed") )
         {
-            $Parameters.Add("elapsed", $Elapsed)
+            $ElapsedString = ConvertTo-TestRailTimeSpanString -TimeSpanValue $Elapsed
+            $Parameters.Add("elapsed", $ElapsedString)
         }
 
         if ( $PSBoundParameters.ContainsKey("Defects") )
@@ -346,7 +373,7 @@ function Add-TestRailResultForCase
             $Parameters.Add("assignedto_id", $AssignedToId)
         }
 
-        $CustomFields.Keys |% {
+        $CustomFields.Keys | ForEach-Object {
             $Key = $_
             if ( $Key -notmatch "^custom_" )
             {
@@ -356,7 +383,7 @@ function Add-TestRailResultForCase
             $Parameters.Add($Key, $CustomFields[$_])
         }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -386,7 +413,7 @@ function New-TestRailResult
         $Version,
 
         [Parameter(Mandatory=$false)]
-        [string]
+        [TimeSpan]
         $Elapsed,
 
         [Parameter(Mandatory=$false)]
@@ -426,7 +453,8 @@ function New-TestRailResult
 
         if ( $PSBoundParameters.ContainsKey("Elapsed") )
         {
-            $Parameters.Add("elapsed", $Elapsed)
+            $ElapsedString = ConvertTo-TestRailTimeSpanString -TimeSpanValue $Elapsed
+            $Parameters.Add("elapsed", $ElapsedString)
         }
 
         if ( $PSBoundParameters.ContainsKey("Defects") )
@@ -439,7 +467,7 @@ function New-TestRailResult
             $Parameters.Add("assignedto_id", $AssignedToId)
         }
 
-        $CustomFields.Keys |% {
+        $CustomFields.Keys | ForEach-Object {
             $Key = $_
             if ( $Key -notmatch "^custom_" )
             {
@@ -489,7 +517,7 @@ function Add-TestRailResultsForCases
             $Parameters = @{ results = @( $Results ) }
         }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -529,7 +557,28 @@ function Add-TestRailResults
             $Parameters = @{ results = @( $Results ) }
         }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
+function Add-TestRailAttachmentToResult
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        [Alias('result_id')]
+        [int]
+        $ResultId,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({Test-Path $_ -PathType Leaf})]
+        [string]
+        $FilePath
+    )
+    PROCESS
+    {
+        $Uri = "add_attachment_to_result/$ResultId"
+        Invoke-TestRailPostAttachmentRequest -Uri $Uri -File $FilePath
+    }
+}

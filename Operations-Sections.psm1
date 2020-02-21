@@ -23,6 +23,6 @@
             Add-UriParameters -Parameters $Parameters -Hash @{ suite_id = $SuiteId } 
         }
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }

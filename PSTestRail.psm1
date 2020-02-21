@@ -1,4 +1,96 @@
-﻿$Script:ApiClient = $null
+﻿class APIClient
+{
+    [ValidateNotNullOrEmpty()][string]
+    $Url
+    [ValidateNotNullOrEmpty()][string]
+    $UserName
+    [ValidateNotNullOrEmpty()][string]
+    $Password
+
+    [PSObject]
+    SendGet(
+        [string]
+        $Uri
+    ){
+        return $this.SendRequest("GET", $Uri, $null)
+    }
+
+    [PSObject]
+    SendPost(
+        [string]
+        $Uri,
+        [HashTable]
+        $Parameters = @{}
+    ){
+        return $this.SendRequest("POST", $Uri, $Parameters)
+    }
+
+    [PSObject]
+    SendPostAttachment(
+        [string]
+        $Uri,
+        [string]
+        $FilePath
+    ){
+        if(-not(Test-Path $FilePath -PathType Leaf)){
+            throw "Given $FilePath was not a file."
+        }
+        $arguments = $this.GetDefaultRestMethodArguments("POST", $Uri)
+        $arguments["ContentType"] = "multipart/form-data"
+        $arguments["Form"] = @{
+            attachment = Get-Item -Path $FilePath
+        }
+        return (Invoke-RestMethod @arguments)
+    }
+
+    [PSObject]
+    SendRequest(
+        [string]$Method,
+        [string]$Uri,
+        [PSObject]$Data
+    ){
+        $arguments = $this.GetDefaultRestMethodArguments($Method, $Uri)
+        $arguments["ContentType"] = "application/json"
+
+        # we have to set a body because of powershell bug https://github.com/PowerShell/PowerShell/issues/9473
+        $arguments["Body"] =  `
+            if($Method -eq "POST" -and (!!$Data)){
+                ConvertTo-Json -InputObject $Data
+            } else {
+                ""
+            }
+
+        return (Invoke-RestMethod @arguments)
+    }
+
+    [Hashtable]
+    GetDefaultRestMethodArguments(
+        [string]$Method,
+        [string]$Uri
+    ){
+        $base64AuthInfo = $this.GetBase64AuthInfo()
+        return @{
+            Headers = @{
+                Authorization=("Basic $base64AuthInfo")
+            };
+            Method = $Method;
+            Uri = $this.GetAbsoluteUri($Uri)
+        }
+    }
+
+    [string]
+    GetAbsoluteUri(
+        [string]$Uri
+    ){
+        return "{0}index.php?/api/v2/{1}" -f $this.Url, $Uri
+    }
+
+    [string]
+    GetBase64AuthInfo(){
+        return [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $this.UserName, $this.Password)))
+    }
+}
+$Script:ApiClient = $null
 $Script:Debug = $false
 
 function Initialize-TestRailSession
@@ -18,12 +110,11 @@ function Initialize-TestRailSession
         [String]
         $Password
     )
-
-    Add-Type -AssemblyName System.Web
-
-    $Script:ApiClient = New-Object Gurock.TestRail.APIClient -ArgumentList $Uri
-    $Script:ApiClient.User = $User
-    $Script:ApiClient.Password = $Password
+    $Script:ApiClient = [ApiClient]@{
+        Url = $Uri
+        UserName = $User
+        Password = $Password
+    }
 }
 
 function ConvertTo-UnixTimestamp
@@ -102,7 +193,7 @@ function Get-TestRailDebug
     $Script:Debug
 }
 
-function Request-TestRailUri
+function Invoke-TestRailGetRequest
 {
     param
     (
@@ -115,7 +206,7 @@ function Request-TestRailUri
         $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
     )
 
-    if ( $Script:ApiClient -eq $null )
+    if ( $null -eq $Script:ApiClient )
     {
         throw New-Object Exception -ArgumentList "You must call Initialize-TestRailSession first"
     }
@@ -126,15 +217,15 @@ function Request-TestRailUri
         $RealUri += [String]::Format("&{0}", $Parameters.ToString())
     }
 
-    Write-ToDebug -Format "Request-TestRailUri: Uri: {0}" -Parameters $RealUri
+    Write-ToDebug -Format "Invoke-TestRailGetRequest: Uri: {0}" -Parameters $RealUri
 
     $Result = $Script:ApiClient.SendGet($RealUri)
-    Write-ToDebug -Format "Request-TestRailUri: Result: {0}" -Parameters $Result.ToString()
+    Write-ToDebug -Format "Invoke-TestRailGetRequest: Result: {0}" -Parameters $Result
 
-    New-ObjectHash -Object $Result
+    return $Result
 }
 
-function Submit-TestRailUri
+function Invoke-TestRailPostRequest
 {
     param
     (
@@ -147,18 +238,46 @@ function Submit-TestRailUri
         $Parameters = @{}
     )
 
-    if ( $Script:ApiClient -eq $null )
+    if ( $null -eq $Script:ApiClient )
     {
         throw New-Object Exception -ArgumentList "You must call Initialize-TestRailSession first"
     }
 
-    Write-ToDebug -Format "Submit-TestRailUri: Uri: {0}" -Parameters $Uri
-    Write-ToDebug -Format "Submit-TestRailUri: Parameters: {0}" -Parameters ([Newtonsoft.Json.JsonConvert]::SerializeObject($Parameters))
+    Write-ToDebug -Format "Invoke-TestRailPostRequest: Uri: {0}" -Parameters $Uri
+    Write-ToDebug -Format "Invoke-TestRailPostRequest: Parameters: {0}" -Parameters ([Newtonsoft.Json.JsonConvert]::SerializeObject($Parameters))
 
     $Result = $Script:ApiClient.SendPost($Uri, $Parameters)
-    Write-ToDebug -Format "Submit-TestRailUri: Result: {0}" -Parameters $Result.ToString()
+    Write-ToDebug -Format "Invoke-TestRailPostRequest: Result: {0}" -Parameters $Result
 
-    New-ObjectHash -Object $Result
+    return $Result
+}
+
+function Invoke-TestRailPostAttachmentRequest
+{
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        [String]
+        $Uri,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({Test-Path $_ -PathType Leaf})]
+        [string]
+        $File
+    )
+
+    if ( $null -eq $Script:ApiClient )
+    {
+        throw New-Object Exception -ArgumentList "You must call Initialize-TestRailSession first"
+    }
+
+    Write-ToDebug -Format "Invoke-TestRailPostAttachmentRequest: Uri: {0}" -Parameters $Uri
+    Write-ToDebug -Format "Invoke-TestRailPostAttachmentRequest: File: {0}" -Parameters $File
+
+    $Result = $Script:ApiClient.SendPostAttachment($Uri, $File)
+    Write-ToDebug -Format "Invoke-TestRailPostAttachmentRequest: Result: {0}" -Parameters $Result
+
+    return $Result
 }
 
 function Add-UriParameters
@@ -173,51 +292,28 @@ function Add-UriParameters
         $Hash
     )
 
-    if ( $Parameters -eq $null )
+    if ($null -eq $Parameters)
     {
         $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
     }
 
-    $Hash.Keys |% {
+    $Hash.Keys | ForEach-Object {
         $Key = $_;
 
-        if ( $Hash.$_ -is [Array] )
-            { $Key = $_; $Hash.$Key |% { $Parameters.Add( $Key, $_ ) } }
+        if ($Hash.$_ -is [Array])
+        {
+            $Key = $_; $Hash.$Key | ForEach-Object { $Parameters.Add( $Key, $_ ) }
+        }
         else
-            { $Parameters.Add( $Key, $Hash.$Key ) }
+        {
+            $Parameters.Add( $Key, $Hash.$Key )
+        }
     }
 }
 
 function Get-TestRailApiClient
 {
     $Script:ApiClient
-}
-
-function New-ObjectHash
-{
-    param
-    (
-        [Parameter(Mandatory=$true)]
-        [object]
-        $Object
-    )
-
-    Write-ToDebug -Format "New-ObjectHash: Object is '{0}' from '{1}' ({2})" -Parameters $Object.GetType().FullName, $Object.GetType().Assembly.FullName, $Object.GetType().Assembly.Location
-
-    if ( $Object -is [Newtonsoft.Json.Linq.JArray] )
-    {
-        $Object |% { New-ObjectHash -Object $_ }
-    }
-    elseif ( $Object -is [Newtonsoft.Json.Linq.JObject] )
-    {
-        $Hash = New-Object PSObject
-        $Object.Properties() |% { Add-Member -InputObject $Hash -MemberType NoteProperty -Name $_.Name -Value $_.Value.ToString() -PassThru:$false }
-        $Hash
-    }
-    else
-    {
-        throw New-Object ArgumentException -ArgumentList ("Object must be a JObject or JArray but it is a " + $Object.GetType().Name)
-    }
 }
 
 function Write-ToDebug

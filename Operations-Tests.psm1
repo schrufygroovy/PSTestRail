@@ -22,6 +22,21 @@
             Add-UriParameters -Parameters $Parameters -Hash @{ status_id = [String]::Join(",", $StatusId ) }
         }
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
+    }
+}
+
+function Get-TestRailTestStatuses
+{
+    param
+    (
+    )
+
+    PROCESS
+    {
+        $Uri = "get_statuses"
+        $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }

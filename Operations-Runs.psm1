@@ -14,7 +14,7 @@
         $Uri = "get_run/$RunId"
         $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -34,7 +34,7 @@ function Get-TestRailRuns
         $Uri = "get_runs/$ProjectId"
         $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -99,7 +99,7 @@ function Set-TestRailRun
 
         if ( $Parameters.Count -ne 0 )
         {
-            Request-TestRailUri -Uri $Uri -Parameters $Parameters
+            Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
         }
         else
         {
@@ -122,7 +122,7 @@ function Stop-TestRailRun
     PROCESS
     {
         $Uri = "close_run/$RunId"
-        Submit-TestRailUri -Uri $Uri
+        Invoke-TestRailPostRequest -Uri $Uri
     }
 }
 
@@ -160,12 +160,12 @@ function Start-TestRailRun
         $AssignedToId,
 
         [Parameter(Mandatory=$false)]
-        [bool]
-        $IncludeAll = $true,
+        [int[]]
+        $CaseIds,
 
         [Parameter(Mandatory=$false)]
-        [int[]]
-        $CaseId
+        [string[]]
+        $Refs
     )
 
     PROCESS
@@ -173,22 +173,30 @@ function Start-TestRailRun
         $Uri = "add_run/$ProjectId"
 
         $Parameters = @{
-            suite_id = $SuiteId
             name = $Name
             description = $Description
             assignedto_id = $AssignedToId
-            include_all = $IncludeAll
         }
-        if ( $PSBoundParameters.ContainsKey("CaseId") )
+
+        if ( $PSBoundParameters.ContainsKey("SuiteId") )
         {
-            $Parameters.case_ids = $CaseId
+            $Parameters["suite_id"] = $SuiteId
         }
         if ( $PSBoundParameters.ContainsKey("MilestoneId") )
-		{
-			Add-UriParameters -Parameters $Parameters -Hash @{ milestone_id = $MilestoneId }
-		}
+        {
+            $Parameters["milestone_id"] = $MilestoneId
+        }
+        if ( $PSBoundParameters.ContainsKey("CaseIds") -and $CaseIds.Count -gt 0)
+        {
+            $Parameters["case_ids"] = $CaseIds
+            $Parameters["include_all"] = $false
+        }
+        if ( $PSBoundParameters.ContainsKey("Refs") )
+        {
+            $Parameters["refs"] = [string]::Join(",", $Refs)
+        }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -208,6 +216,6 @@ function Remove-TestRailRun
         $Uri = "delete_run/$RunId"
         $Parameters = @{}
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }

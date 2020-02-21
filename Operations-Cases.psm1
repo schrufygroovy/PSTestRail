@@ -14,7 +14,7 @@
         $Uri = "get_case/$CaseId"
         $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -137,7 +137,7 @@ function Get-TestRailCases
             Add-UriParameters -Parameters $Parameters -Hash @{ "updated_by" = [string]::Join(",", $UpdatedBy) }
         }
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -209,7 +209,7 @@ function Add-TestRailCase
 
         if ( $PSBoundParameters.ContainsKey("MilestoneId") )
         {
-            $Parameters[ "milestone_id"] = $MilestoneId
+            $Parameters["milestone_id"] = $MilestoneId
         }
         
         if ( $PSBoundParameters.ContainsKey("Refs") )
@@ -217,7 +217,7 @@ function Add-TestRailCase
             $Parameters["refs"] = [string]::Join(",", $Refs)
         }
 
-        $CustomFields.Keys |% {
+        $CustomFields.Keys | ForEach-Object {
             $Key = $_
             if ( $Key -notmatch "^custom_" )
             {
@@ -227,7 +227,7 @@ function Add-TestRailCase
             $Parameters.Add($Key, $CustomFields[$_])
         }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -319,7 +319,7 @@ function Set-TestRailCase
             $Parameters.Add($Key, $CustomFields[$_])
         }
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -338,6 +338,20 @@ function Remove-TestRailCase
         $Uri = "delete_case/$CaseId"
         $Parameters = @{}
 
-        Submit-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailPostRequest -Uri $Uri -Parameters $Parameters
+    }
+}
+
+function Get-TestRailCaseTypes
+{
+    [CmdletBinding()]
+    param
+    (
+    )
+
+    PROCESS
+    {
+        $Uri = "get_case_types"
+        return Invoke-TestRailGetRequest -Uri $Uri
     }
 }

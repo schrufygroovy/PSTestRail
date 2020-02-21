@@ -15,7 +15,7 @@
             $Uri = "get_suites/$PID"
             $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
-            Request-TestRailUri -Uri $Uri -Parameters $Parameters
+            Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
         }
     }
 }
@@ -37,7 +37,7 @@ function Get-TestRailSuite
             $Uri = "get_suite/$SID"
             $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
-            Request-TestRailUri -Uri $Uri -Parameters $Parameters
+            Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
         }
     }
 }

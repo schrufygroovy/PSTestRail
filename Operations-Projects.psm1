@@ -13,7 +13,7 @@
         $Uri = "get_project/$ProjectId"
         $Parameters = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
-        Request-TestRailUri -Uri $Uri -Parameters $Parameters
+        Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
     }
 }
 
@@ -31,15 +31,8 @@ function Get-TestRailProjects
 
     if ( $PSBoundParameters.ContainsKey("IsCompleted") )
     {
-        if ( $IsCompleted -eq $true )
-        {
-            Add-UriParameters -Parameters $Parameters -Hash @{ is_completed = 1 } 
-        }
-        else
-        {
-            Add-UriParameters -Parameters $Parameters -Hash @{ is_completed = 0 }
-        }
+        Add-UriParameters -Parameters $Parameters -Hash @{ is_completed = [int]$IsCompleted }
     }
 
-    Request-TestRailUri -Uri $Uri -Parameters $Parameters
+    Invoke-TestRailGetRequest -Uri $Uri -Parameters $Parameters
 }
