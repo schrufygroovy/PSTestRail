@@ -217,10 +217,10 @@ function Invoke-TestRailGetRequest
         $RealUri += [String]::Format("&{0}", $Parameters.ToString())
     }
 
-    Write-ToDebug -Format "Invoke-TestRailGetRequest: Uri: {0}" -Parameters $RealUri
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Uri: $RealUri"
 
     $Result = $Script:ApiClient.SendGet($RealUri)
-    Write-ToDebug -Format "Invoke-TestRailGetRequest: Result: {0}" -Parameters $Result
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Result: '$($Result | ConvertTo-Json -Depth 99)'"
 
     return $Result
 }
@@ -243,11 +243,11 @@ function Invoke-TestRailPostRequest
         throw New-Object Exception -ArgumentList "You must call Initialize-TestRailSession first"
     }
 
-    Write-ToDebug -Format "Invoke-TestRailPostRequest: Uri: {0}" -Parameters $Uri
-    Write-ToDebug -Format "Invoke-TestRailPostRequest: Parameters: {0}" -Parameters ([Newtonsoft.Json.JsonConvert]::SerializeObject($Parameters))
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Uri: $Uri"
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Parameters: $($Parameters | ConvertTo-Json -Depth 99 )"
 
     $Result = $Script:ApiClient.SendPost($Uri, $Parameters)
-    Write-ToDebug -Format "Invoke-TestRailPostRequest: Result: {0}" -Parameters $Result
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Result: '$($Result | ConvertTo-Json -Depth 99)'"
 
     return $Result
 }
@@ -271,11 +271,11 @@ function Invoke-TestRailPostAttachmentRequest
         throw New-Object Exception -ArgumentList "You must call Initialize-TestRailSession first"
     }
 
-    Write-ToDebug -Format "Invoke-TestRailPostAttachmentRequest: Uri: {0}" -Parameters $Uri
-    Write-ToDebug -Format "Invoke-TestRailPostAttachmentRequest: File: {0}" -Parameters $File
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Uri: $Uri"
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): File: $File"
 
     $Result = $Script:ApiClient.SendPostAttachment($Uri, $File)
-    Write-ToDebug -Format "Invoke-TestRailPostAttachmentRequest: Result: {0}" -Parameters $Result
+    Write-ToDebug -Message "$($MyInvocation.MyCommand.Name): Result: '$($Result | ConvertTo-Json -Depth 99)'"
 
     return $Result
 }
